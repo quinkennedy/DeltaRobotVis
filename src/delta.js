@@ -1,22 +1,75 @@
-var camera = new BLUR.Camera3D(window.innerWidth-20,window.innerHeight-20);
-var scene = new BLUR.Scene3D();
-var renderer = new BLUR.CanvasRenderer(scene,camera);
-var mouseX = 0;
-var mouseY = 0;
-var shouldDraw = false;
+var camera, scene, renderer, geometry, material, mesh,mouseX,mouseY;
+mouseX = mouseY = 0;
 
 //from sMath
-var upperLegLength=200;
-var lowerLegLength=300;
-var upperHingeDistance=70;
-var lowerHingeDistance=20;
+var upperLegLength=20;
+var lowerLegLength=30;
+var upperHingeDistance=7;
+var lowerHingeDistance=2;
 var hingeDistance=upperHingeDistance-lowerHingeDistance;
 var hingeAngle1=0;
 var hingeAngle2=2*Math.PI/3;
 var hingeAngle3=4*Math.PI/3;
-var legAngle1=-35*Math.PI/180;
-var legAngle2=-35*Math.PI/180;
-var legAngle3=-35*Math.PI/180;
+var legAngle1=-5*Math.PI/180;
+var legAngle2=-15*Math.PI/180;
+var legAngle3=-55*Math.PI/180;
+
+windowHalfX = window.innerWidth / 2,
+windowHalfY = window.innerHeight / 2,
+
+SEPARATION = 200,
+AMOUNTX = 10,
+AMOUNTY = 10,
+
+init();
+animate();
+function init(){
+	scene = new THREE.Scene();
+	camera = new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,1,10000);
+	camera.position.z=100;
+	scene.add(camera);
+/*	
+	geometry=new THREE.CubeGeometry(200,200,200);
+	material=new THREE.MeshBasicMaterial({color:0xff0000,wireframe:true});
+
+	mesh = new THREE.Mesh(geometry,material);
+	scene.add(mesh);
+	*/
+	var geometry = new THREE.Geometry();
+
+	var arrPoints = getPoints();
+	for(var i in arrPoints){
+		geometry.vertices.push(new THREE.Vertex(arrPoints[i]));
+	}
+	/*
+	for ( var i = 0; i < 100; i ++ ) {
+
+		particle = new THREE.Particle( material );
+		particle.position.x = Math.random() * 2 - 1;
+		particle.position.y = Math.random() * 2 - 1;
+		particle.position.z = Math.random() * 2 - 1;
+		particle.position.normalize();
+		particle.position.multiplyScalar( Math.random() * 10 + 450 );
+		particle.scale.x = particle.scale.y = 5;
+
+		geometry.vertices.push( new THREE.Vertex( particle.position ) );
+
+	}
+	*/
+
+	// lines
+
+	var line = new THREE.Line( geometry, new THREE.LineBasicMaterial( { color: 0xffffff, opacity: 0.5 } ) );
+	scene.add( line );
+
+	document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+	document.addEventListener( 'touchstart', onDocumentTouchStart, false );
+	document.addEventListener( 'touchmove', onDocumentTouchMove, false );
+	
+	renderer=new THREE.CanvasRenderer();
+	renderer.setSize(window.innerWidth, window.innerHeight);
+	document.body.appendChild(renderer.domElement);
+}
 
 function pol2xy(r,a){
 	return {x:r*Math.cos(a),
@@ -26,98 +79,107 @@ function pol2xy(r,a){
 function kneePoint(legAngle,hingeAngle,hingeDistance,upperLegLength){
 	var r = hingeDistance+Math.cos(legAngle)*upperLegLength;
 	var xy=pol2xy(r,hingeAngle);
-	return new BLUR.Vector(xy.x,-Math.sin(legAngle)*upperLegLength,xy.y);
+	return new THREE.Vector3(xy.x,xy.y,Math.sin(legAngle)*upperLegLength);
 }
 
 function getAvgPt(arrVectors){
-	var x,y,z;
-	x = y = z = 0;
+	var output = new THREE.Vector3();
 	for(var i in arrVectors){
-		x+=arrVectors[i].x;
-		y+=arrVectors[i].y;
-		z+=arrVectors[i].z;
+		output.addSelf(arrVectors[i]);
 	}	
-	x/=arrVectors.length;
-	y/=arrVectors.length;
-	z/=arrVectors.length;
-	return new BLUR.Vector(x,y,z);
+	return output.divideScalar(arrVectors.length);
 }
 
-function crossProduct(a,b){
-	return new BLUR.Vector(
-		a.y*b.z-a.z*b.y,
-		a.z*b.x-a.x*b.z,
-		a.x*b.y-a.y*b.x);
-}
-
-function duplicateVector(v){
-	return new BLUR.Vector(v.x,v.y,v.z);
-}
-
-function multiplyVector(v,n){
-	return new BLUR.Vector(v.x*n,v.y*n,v.z*n);
-}
-
-function vectorLength(v){
-	return Math.sqrt(v.x*v.x+v.y*v.y+v.z*v.z);
-}
-
-function init(){
+function getPoints(){
 	var knee1=kneePoint(legAngle1,hingeAngle1,hingeDistance,upperLegLength);
 	var knee2=kneePoint(legAngle2,hingeAngle2,hingeDistance,upperLegLength);
 	var knee3=kneePoint(legAngle3,hingeAngle3,hingeDistance,upperLegLength);
 	var avgPt=getAvgPt([knee1,knee2,knee3]);
-	var tmp1=duplicateVector(knee1);
-	tmp1.subtract(avgPt);
-	var tmp2=duplicateVector(knee2);
-	tmp2.subtract(avgPt);
-	var toolLn=crossProduct(tmp1,tmp2);
-	toolLn.normalise();
-	var dist=Math.sqrt(lowerLegLength*lowerLegLength-Math.pow(vectorLength(tmp1),2));
-	var toolPt=duplicateVector(avgPt);
-	toolPt.subtract(multiplyVector(toolLn,dist));
+	var tmp1=new THREE.Vector3().sub(knee1,avgPt);
+	var toolLn=new THREE.Vector3().cross(tmp1,new THREE.Vector3().sub(knee2,avgPt));
+	toolLn.normalize();
+	var dist=Math.sqrt(lowerLegLength*lowerLegLength-tmp1.lengthSq());
+	var toolPt=new THREE.Vector3().sub(avgPt,toolLn.clone().multiplyScalar(dist));
 
 	//points for drawing
 	var xyTemp = pol2xy(lowerHingeDistance,hingeAngle1);
-	var lowerHingeOffset1=new BLUR.Vector(xyTemp.x,0,xyTemp.y);
+	var lowerHingeOffset1=new THREE.Vector3(xyTemp.x,xyTemp.y,0);
 	xyTemp = pol2xy(lowerHingeDistance,hingeAngle2);
-	var lowerHingeOffset2=new BLUR.Vector(xyTemp.x,0,xyTemp.y);
+	var lowerHingeOffset2=new THREE.Vector3(xyTemp.x,xyTemp.y,0);
 	xyTemp = pol2xy(lowerHingeDistance,hingeAngle3);
-	var lowerHingeOffset3=new BLUR.Vector(xyTemp.x,0,xyTemp.y);
+	var lowerHingeOffset3=new THREE.Vector3(xyTemp.x,xyTemp.y,0);
 	xyTemp = pol2xy(upperHingeDistance,hingeAngle1);
-	var upperHingeOffset1=new BLUR.Vector(xyTemp.x,0,xyTemp.y);
+	var upperHingeOffset1=new THREE.Vector3(xyTemp.x,xyTemp.y,0);
 	xyTemp = pol2xy(upperHingeDistance,hingeAngle2);
-	var upperHingeOffset2=new BLUR.Vector(xyTemp.x,0,xyTemp.y);
+	var upperHingeOffset2=new THREE.Vector3(xyTemp.x,xyTemp.y,0);
 	xyTemp = pol2xy(upperHingeDistance,hingeAngle3);
-	var upperHingeOffset3=new BLUR.Vector(xyTemp.x,0,xyTemp.y);
-	var actualKnee1=duplicateVector(knee1);
-	actualKnee1.add(lowerHingeOffset1);
-	var actualKnee2=duplicateVector(knee2);
-	actualKnee2.add(lowerHingeOffset2);
-	var actualKnee3=duplicateVector(knee3);
-	actualKnee3.add(lowerHingeOffset3);
-	var toolPt1=duplicateVector(toolPt);
-	toolPt1.add(lowerHingeOffset1);
-	var toolPt2=duplicateVector(toolPt);
-	toolPt2.add(lowerHingeOffset2);
-	var toolPt3=duplicateVector(toolPt);
-	toolPt3.add(lowerHingeOffset3);
+	var upperHingeOffset3=new THREE.Vector3(xyTemp.x,xyTemp.y,0);
+	var actualKnee1=new THREE.Vector3().add(knee1,lowerHingeOffset1);
+	var actualKnee2=new THREE.Vector3().add(knee2,lowerHingeOffset2);
+	var actualKnee3=new THREE.Vector3().add(knee3,lowerHingeOffset3);
+	var toolPt1=new THREE.Vector3().add(toolPt,lowerHingeOffset1);
+	var toolPt2=new THREE.Vector3().add(toolPt,lowerHingeOffset2);
+	var toolPt3=new THREE.Vector3().add(toolPt,lowerHingeOffset3);
 
-	var arrOrder = [toolPt1,actualKnee1,upperHingeOffset1,
-			upperHingeOffset2,actualKnee2,toolPt2,
-			toolPt1,toolPt3,toolPt2,toolPt3,
-			actualKnee3,upperHingeOffset3,upperHingeOffset2,
-			upperHingeOffset3,upperHingeOffset1];
-	for(var i = 1; i<arrOrder.length; i++){
-		var line = new BLUR.Line(2);
-		line.setPosition(duplicateVector(arrOrder[i-1]),duplicateVector(arrOrder[i]));
-		scene.addObject(line);
-	}
-	//var line = new BLUR.Line(10);
-	//line.setPosition(new BLUR.Vector(100,100,0),new BLUR.Vector(-100,-100,0));
-	//scene.addObject(line);
-	setInterval(render,10);
+	return [toolPt1,actualKnee1,upperHingeOffset1,
+		upperHingeOffset2,actualKnee2,toolPt2,
+		toolPt1,toolPt3,toolPt2,toolPt3,
+		actualKnee3,upperHingeOffset3,upperHingeOffset2,
+		upperHingeOffset3,upperHingeOffset1];
 }
+
+function onDocumentMouseMove(event) {
+
+	mouseX = event.clientX - windowHalfX;
+	mouseY = event.clientY - windowHalfY;
+}
+
+function onDocumentTouchStart( event ) {
+
+	if ( event.touches.length > 1 ) {
+
+		event.preventDefault();
+
+		mouseX = event.touches[ 0 ].pageX - windowHalfX;
+		mouseY = event.touches[ 0 ].pageY - windowHalfY;
+
+	}
+
+}
+
+function onDocumentTouchMove( event ) {
+
+	if ( event.touches.length == 1 ) {
+
+		event.preventDefault();
+
+		mouseX = event.touches[ 0 ].pageX - windowHalfX;
+		mouseY = event.touches[ 0 ].pageY - windowHalfY;
+
+	}
+
+}
+
+
+function animate(){
+	requestAnimationFrame(animate);
+	render();
+}
+
+function render(){
+	camera.position.x += ( mouseX - camera.position.x ) * .05;
+	camera.position.y += ( - mouseY + 200 - camera.position.y ) * .05;
+	camera.lookAt( scene.position );
+
+	renderer.render(scene,camera);
+}
+/*var camera = new BLUR.Camera3D(window.innerWidth-20,window.innerHeight-20);
+var scene = new BLUR.Scene3D();
+var renderer = new BLUR.CanvasRenderer(scene,camera);
+var mouseX = 0;
+var mouseY = 0;
+var shouldDraw = false;
+
 
 function render(){
 	if (shouldDraw){
@@ -144,3 +206,4 @@ jQuery(document).ready(function(){
 });
 
 init();
+*/
