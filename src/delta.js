@@ -2,10 +2,10 @@ var camera, scene, renderer, geometry, material, mesh,mouseX,mouseY,delta;
 mouseX = mouseY = 0;
 
 //from sMath
-var upperLegLength=20;
-var lowerLegLength=35;
-var upperHingeDistance=7;
-var lowerHingeDistance=2;
+var upperLegLength=20*5;
+var lowerLegLength=35*5;
+var upperHingeDistance=7*5;
+var lowerHingeDistance=2*5;
 var hingeDistance=upperHingeDistance-lowerHingeDistance;
 var hingeAngle1=0;
 var hingeAngle2=2*Math.PI/3;
@@ -14,15 +14,15 @@ var legAngle1=-5*Math.PI/180;
 var legAngle2=-15*Math.PI/180;
 var legAngle3=-55*Math.PI/180;
 
-var idxActualKnee1=1;
-var idxActualKnee2=4;
-var idxActualKnee3=10;
-var idxToolPt1=0;
-var idxToolPt2=5;
-var idxToolPt3=7;
-var idxHingePt1=2;
-var idxHingePt2=3;
-var idxHingePt3=11;
+var idxActualKnee1=0;
+var idxActualKnee2=1;
+var idxActualKnee3=2;
+var idxToolPt1=3;
+var idxToolPt2=4;
+var idxToolPt3=5;
+var idxHingePt1=6;
+var idxHingePt2=7;
+var idxHingePt3=8;
 var arrChangingPts = [idxActualKnee1,idxActualKnee2,idxActualKnee3,idxToolPt1,idxToolPt2,idxToolPt3];
 var bDecrease1 = true;
 var bDecrease2 = true;
@@ -56,9 +56,21 @@ function init(){
 	*/
 	var geometry = new THREE.Geometry();
 
-	var arrPoints = getPoints();
-	for(var i in arrPoints){
-		geometry.vertices.push(new THREE.Vertex(arrPoints[i]));
+	delta = getPoints();
+	
+	arrGroups = [{color:0xffffff, points:[idxHingePt1,idxHingePt2,idxHingePt3,idxHingePt1]},
+			{color:0xff00ff, points:[idxToolPt1,idxToolPt2,idxToolPt3,idxToolPt1]},
+			{color:0xff0000, points:[idxHingePt1,idxActualKnee1,idxToolPt1]},
+			{color:0x00ff00, points:[idxHingePt2,idxActualKnee2,idxToolPt2]},
+			{color:0x0000ff, points:[idxHingePt3,idxActualKnee3,idxToolPt3]}]
+	for(var i in arrGroups){
+		geometry = new THREE.Geometry();
+		for(var j in arrGroups[i].points){
+			geometry.vertices.push(new THREE.Vertex(delta[arrGroups[i].points[j]]));
+		}
+		geometry.dynamic = true;
+		var line = new THREE.Line(geometry, new THREE.LineBasicMaterial({color:arrGroups[i].color}));
+		scene.add(line);
 	}
 	/*
 	for ( var i = 0; i < 100; i ++ ) {
@@ -75,13 +87,6 @@ function init(){
 
 	}
 	*/
-
-	// lines
-
-	geometry.dynamic = true;
-	delta = geometry;
-	var line = new THREE.Line( geometry, new THREE.LineBasicMaterial( { color: 0xffffff, opacity: 0.5 } ) );
-	scene.add( line );
 
 	document.addEventListener( 'mousemove', onDocumentMouseMove, false );
 	document.addEventListener( 'touchstart', onDocumentTouchStart, false );
@@ -142,11 +147,9 @@ function getPoints(){
 	var toolPt2=new THREE.Vector3().add(toolPt,lowerHingeOffset2);
 	var toolPt3=new THREE.Vector3().add(toolPt,lowerHingeOffset3);
 
-	return [toolPt1,actualKnee1,upperHingeOffset1,
-		upperHingeOffset2,actualKnee2,toolPt2,
-		toolPt1,toolPt3,toolPt2,toolPt3,
-		actualKnee3,upperHingeOffset3,upperHingeOffset2,
-		upperHingeOffset3,upperHingeOffset1];
+	return [actualKnee1,actualKnee2,actualKnee3,
+		toolPt1,toolPt2,toolPt3,
+		upperHingeOffset1,upperHingeOffset2,upperHingeOffset3];
 }
 
 function onDocumentMouseMove(event) {
@@ -218,9 +221,9 @@ function render(){
 
 	for(var i in arrChangingPts){
 		var currIdx = arrChangingPts[i];
-		delta.vertices[currIdx].position.x = arrPoints[currIdx].x;
-		delta.vertices[currIdx].position.y = arrPoints[currIdx].y;
-		delta.vertices[currIdx].position.z = arrPoints[currIdx].z;
+		delta[currIdx].x = arrPoints[currIdx].x;
+		delta[currIdx].y = arrPoints[currIdx].y;
+		delta[currIdx].z = arrPoints[currIdx].z;
 	}
 
 	camera.position.x += ( mouseX - camera.position.x ) * .05;
