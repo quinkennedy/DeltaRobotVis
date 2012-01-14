@@ -1,9 +1,9 @@
-var camera, scene, renderer, geometry, material, mesh,mouseX,mouseY;
+var camera, scene, renderer, geometry, material, mesh,mouseX,mouseY,delta;
 mouseX = mouseY = 0;
 
 //from sMath
 var upperLegLength=20;
-var lowerLegLength=30;
+var lowerLegLength=35;
 var upperHingeDistance=7;
 var lowerHingeDistance=2;
 var hingeDistance=upperHingeDistance-lowerHingeDistance;
@@ -13,6 +13,25 @@ var hingeAngle3=4*Math.PI/3;
 var legAngle1=-5*Math.PI/180;
 var legAngle2=-15*Math.PI/180;
 var legAngle3=-55*Math.PI/180;
+
+var idxActualKnee1=1;
+var idxActualKnee2=4;
+var idxActualKnee3=10;
+var idxToolPt1=0;
+var idxToolPt2=5;
+var idxToolPt3=7;
+var idxHingePt1=2;
+var idxHingePt2=3;
+var idxHingePt3=11;
+var arrChangingPts = [idxActualKnee1,idxActualKnee2,idxActualKnee3,idxToolPt1,idxToolPt2,idxToolPt3];
+var bDecrease1 = true;
+var bDecrease2 = true;
+var bDecrease3 = true;
+var minAngle = -90*Math.PI/180;
+var maxAngle = 55*Math.PI/180;
+var incAngle1 = .5*Math.PI/180;
+var incAngle2 = .4*Math.PI/180;
+var incAngle3 = .3*Math.PI/180;
 
 windowHalfX = window.innerWidth / 2,
 windowHalfY = window.innerHeight / 2,
@@ -59,6 +78,8 @@ function init(){
 
 	// lines
 
+	geometry.dynamic = true;
+	delta = geometry;
 	var line = new THREE.Line( geometry, new THREE.LineBasicMaterial( { color: 0xffffff, opacity: 0.5 } ) );
 	scene.add( line );
 
@@ -167,6 +188,41 @@ function animate(){
 }
 
 function render(){
+	legAngle1 += (bDecrease1 ? -incAngle1 : incAngle1);
+	if (legAngle1 <= minAngle){
+		legAngle1 = minAngle;
+		bDecrease1 = false;
+	} else if (legAngle1 >= maxAngle){
+		legAngle1 = maxAngle;
+		bDecrease1 = true;
+	}
+
+	legAngle2 += (bDecrease2 ? -incAngle2 : incAngle2);
+	if (legAngle2 <= minAngle){
+		legAngle2 = minAngle;
+		bDecrease2 = false;
+	} else if (legAngle2 >= maxAngle){
+		legAngle2 = maxAngle;
+		bDecrease2 = true;
+	}
+
+	legAngle3 += (bDecrease3 ? -incAngle3 : incAngle3);
+	if (legAngle3 <= minAngle){
+		legAngle3 = minAngle;
+		bDecrease3 = false;
+	} else if (legAngle3 >= maxAngle){
+		legAngle3 = maxAngle;
+		bDecrease3 = true;
+	}
+	var arrPoints = getPoints();
+
+	for(var i in arrChangingPts){
+		var currIdx = arrChangingPts[i];
+		delta.vertices[currIdx].position.x = arrPoints[currIdx].x;
+		delta.vertices[currIdx].position.y = arrPoints[currIdx].y;
+		delta.vertices[currIdx].position.z = arrPoints[currIdx].z;
+	}
+
 	camera.position.x += ( mouseX - camera.position.x ) * .05;
 	camera.position.y += ( - mouseY + 200 - camera.position.y ) * .05;
 	camera.lookAt( scene.position );
